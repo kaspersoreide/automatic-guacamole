@@ -1,69 +1,66 @@
 #include "terrain.h"
 #include <math.h>
+#include <vector>
 
-void Terrain::makeChunk(ivec2 pos, int LOD) {
-    Chunk c;
-    c.LOD = LOD;
-    int numVert = chunkSize * (1 << LOD);
+Terrain::Chunk::~Chunk() {
+    glDeleteBuffers(1, &vertexBuffer);
+    glDeleteVertexArrays(1, &vertexArray);
+}
+
+void Terrain::makeChunk(ivec2 pos) {
     
-    //compute shader puts normal in rgb and height in a
-    glGenTextures(1, &c.image);
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, c.image);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    //texture is 1 larger than numvert to access corner for triangle tesselation
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, numVert + 1, numVert + 1, 0, GL_RGBA, GL_FLOAT, NULL);
-    glBindImageTexture(0, c.image, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
-    
- 
+    Chunk* c = new Chunk();
+    //chunk is square of length CHUNK_SIZE, 6 vertices per "tile"
+    int numVert = CHUNK_SIZE * CHUNK_SIZE * 6;
+    //8 floats per vertex;
+    int stride = 8 * sizeof(float);
+    glCreateBuffers(1, &c->vertexBuffer);
+    glBindBuffer(GL_ARRAY_BUFFER, c->vertexBuffer);
+
+	glBufferData(GL_ARRAY_BUFFER, numVert * stride, NULL, GL_STATIC_DRAW);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, c->vertexBuffer);
     glUseProgram(computeProgram);
-    glUniform1f(glGetUniformLocation(computeProgram, "offset"), 1.0f / numVert);
     glUniform2i(glGetUniformLocation(computeProgram, "chunkPos"), pos[0], pos[1]);
-    glUniform1i(glGetUniformLocation(computeProgram, "LOD"), LOD);
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	glDispatchCompute(CHUNK_SIZE, CHUNK_SIZE, 1);
+    glMemoryBarrier(GL_VERTEX_ATTRIB_ARRAY_BARRIER_BIT);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, 0);
+    glBindBuffer(GL_ARRAY_BUFFER, c->vertexBuffer);
+    glCreateVertexArrays(1, &c->vertexArray);
+    glBindVertexArray(c->vertexArray);
+    
+    
+    glEnableVertexAttribArray(0);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, stride, (void*)0);
+    glEnableVertexAttribArray(1);
+	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, stride, (void*)(3 * sizeof(float)));
+    glEnableVertexAttribArray(2);
+	glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, stride, (void*)(6 * sizeof(float)));
+    
 	glBindVertexArray(0);
-	glDispatchCompute(numVert + 1, numVert + 1, 1);
-	glMemoryBarrier(GL_VERTEX_ATTRIB_ARRAY_BARRIER_BIT);
-   
-	chunks.insert(std::pair<ivec2, Chunk>(pos, c));
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+	
+    auto err = glGetError();
+    if (err != GL_NO_ERROR) std::cout << "error: " << err << '\n';
+    std::pair<ivec2, Chunk*> pair(pos, c);
+	chunks.insert(pair);
+    //print
+    /*glBindBuffer(GL_ARRAY_BUFFER, c->vertexBuffer);
+    //glBindVertexArray(c.vertexArray);
+	std::vector<float> arr(numVert * stride / sizeof(float));
+	glGetBufferSubData(GL_ARRAY_BUFFER, 0, numVert*stride, &arr[0]);
+	for (int i = 0; i < 400; i++) {
+		if (i % 8 == 0) {
+			std::cout << '\n';
+		}
+		std::cout << arr[i] << ", ";
+	}
+    std::cout << '\n';*/
 }
 
 Terrain::Terrain() {
-    for (int i = 0; i < LODs; i++) {
-        GLuint VBO;
-        std::vector<vec2> vertices;
-        int numVert = chunkSize * std::pow(2, i);
-        for (int i = 0; i < numVert; i++) {
-            for (int j = 0; j < numVert; j++) {
-                float x = (float)i / numVert;
-                float y = (float)j / numVert;
-                vertices.push_back(vec2(x, y));
-            }
-        }
-        glGenBuffers(1, &VBO);
-        glBindBuffer(GL_ARRAY_BUFFER, VBO);
-	    glBufferData(
-	    	GL_ARRAY_BUFFER,
-	    	2 * sizeof(float) * vertices.size(),
-	    	&vertices[0],
-	    	GL_STATIC_DRAW
-	    );
-        glGenVertexArrays(1, &VAO[i]);
-        glBindVertexArray(VAO[i]);
-        glEnableVertexAttribArray(0);
-	    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, 0);
-    }
-    
-    program = loadGeometryShader("shaders/terrain/vert.shader", "shaders/terrain/geom.shader", "shaders/terrain/frag.shader");
-    computeProgram = loadComputeShader("shaders/terrain/compute.shader");
-    for (int i = 0; i < 4; i++) {
-        for (int j = 0; j < 4; j++) {
-            makeChunk(ivec2(i, j), 0);        
-        }
-    }
+    program = loadShaders("shaders/terrain/vert.glsl", "shaders/terrain/frag.glsl");
+    computeProgram = loadComputeShader("shaders/terrain/compute.glsl");
 }
 
 void Terrain::render(mat4 VP) {
@@ -72,55 +69,71 @@ void Terrain::render(mat4 VP) {
         glGetUniformLocation(program, "VP"),
         1, GL_FALSE, &VP[0][0]
     );
-    glActiveTexture(GL_TEXTURE0);
-    //glPointSize(5.0f);
     for (auto c : chunks) {
-        glBindVertexArray(VAO[c.second.LOD]);
-        glBindTexture(GL_TEXTURE_2D, c.second.image);
-        glUniform2i(glGetUniformLocation(program, "chunkPos"), c.first[0], c.first[1]);
-        
-        int s = std::pow(2, c.second.LOD) * chunkSize;
-        glUniform1f(glGetUniformLocation(program, "offset"), 1.0f / s);
-        glDrawArrays(GL_POINTS, 0, s * s);
+        glBindBuffer(GL_ARRAY_BUFFER, c.second->vertexBuffer);
+        glBindVertexArray(c.second->vertexArray);
+        //glUniform2i(glGetUniformLocation(program, "chunkPos"), c.first[0], c.first[1]);
+    
+        glDrawArrays(GL_TRIANGLES, 0, CHUNK_SIZE * CHUNK_SIZE * 6);
+        //std::cout << "cock" << '\n';
     }
+    auto err = glGetError();
+    if (err != GL_NO_ERROR) std::cout << "error: " << err << '\n';
 }
 
+float Terrain::getHeight(vec2 pos) {
+    ivec2 chunkPos(std::floor(pos.x), std::floor(pos.y));
+    int x = std::floor(pos.x);
+    int y = std::floor(pos.y);
+    auto it = chunks.find(ivec2(x, y));
+    if (it == chunks.end()) return 0.f;
+    Chunk* c = it->second;
+
+    glBindVertexArray(c->vertexArray);
+
+    float dataArr[6 * 8];
+    vec2 d(pos - vec2(chunkPos));
+    ivec2 offset = ivec2(d * float(CHUNK_SIZE));
+    vec2 lilbit = float(CHUNK_SIZE) * (d - vec2(offset));
+    uint idx = 8 * 6 * (offset.x + CHUNK_SIZE * offset.y);
+    //std::cout << "pos: " << pos.x << ", " << pos.y << "\n";
+    //std::cout << "cpos: " << chunkPos.x << ", " << chunkPos.y << "\n";
+    std::cout << "offset: " << offset.x << ", " << offset.y << "\n";
+    std::cout << "offset float: " << d.x << ", " << d.y << "\n";
+
+    glGetBufferSubData(GL_ARRAY_BUFFER, sizeof(float) * idx, 4 * 8 * sizeof(float), dataArr);
+    float h = 0.0f;
+    for (int i = 0; i < 4; i++) {
+        h += dataArr[8 * i + 1];
+    }
+    h /= 4;
+    glBindVertexArray(0);
+    //std::cout << h << '\n';
+    return h;
+}
+
+
 void Terrain::update(vec3 playerPos) {
-    const int renderDistance = 12;
     ivec2 pos = ivec2(playerPos.x, playerPos.z) - ivec2(1, 1);
+    //loop for deleting chunks far away
     auto it = chunks.begin();
     while (it != chunks.end()) {
         ivec2 offset = it->first - pos;
-        int dist = abs(offset.x) + abs(offset.y);
-        if (dist > renderDistance) {
-            glDeleteTextures(1, &it->second.image);
+        int dist2 = offset.x*offset.x + offset.y*offset.y;
+        if (dist2 > 2 * RENDER_DIST * RENDER_DIST) {
+            delete it->second;
             it = chunks.erase(it);
             continue;
         }
         ++it;
     }
-    for (int x = -renderDistance; x <= renderDistance; x++) {
-        for (int y = -renderDistance; y <= renderDistance; y++) {
+    //loop for creating new chunks
+    for (int x = -RENDER_DIST; x <= RENDER_DIST; x++) {
+        for (int y = -RENDER_DIST; y <= RENDER_DIST; y++) {
+            if (x*x + y*y > RENDER_DIST * RENDER_DIST) continue;
             ivec2 chunkPos(pos.x + x, pos.y + y);
-            float d2 = 1.0f - (float)(abs(x) + abs(y)) / (2 * renderDistance);
-            int d = d2 * d2 * d2 * LODs;
-            //if (d < 4) {
-            //    d = 5;
-            //}
-            //else if (d < 5) {
-            //    d = 4;
-            //}
-            //else if (d < 6) {
-            //    d = 1;
-            //} else d = 0;
             it = chunks.find(chunkPos);
-            if (it != chunks.end()) {
-                if (it->second.LOD != d) {
-                    chunks.erase(it);
-                }
-                else continue;
-            }
-            makeChunk(chunkPos, d);
+            if (it == chunks.end()) makeChunk(chunkPos);
         }
     }
 }

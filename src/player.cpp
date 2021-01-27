@@ -1,7 +1,7 @@
 #include "player.h"
 
 
-void Player::move() {
+void Player::move(Terrain* terrain) {
 	const float rotAmount = 0.003f;
 	const float movAmount = 0.00087f;
 	vec3 right = Rotation * vec3(1.0f, 0.0f, 0.0f);
@@ -21,13 +21,21 @@ void Player::move() {
 	if (mov[3]) vel += movAmount * right;
 	if (mov[4]) vel += movAmount * up;
 	if (mov[5]) vel -= movAmount * up;
+	//vel.y -= 0.0005f;
+	float h = terrain->getHeight(vec2(pos.x, pos.z));
+	//if (vel.y < 0.0f && pos.y < h) {
+		//vel.y *= -0.1f;
+		vel.y = 0.0f;
+		pos.y = h + 0.1f;
+	
 	spin *= 0.94f;
-	vel *= 0.9f;
+	vel *= 0.99f;
 	setSpin(spin + dSpin);
 	Object::move();
 }
 
 Player::Player() {
+	pos = vec3(0.0, 2.0, 0.0);
 }
 
 Player::~Player()

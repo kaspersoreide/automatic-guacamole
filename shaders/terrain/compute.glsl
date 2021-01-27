@@ -1,13 +1,22 @@
 #version 430
-layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+layout(local_size_x = 1, local_size_y = 1) in;
 
-layout(rgba32f, binding = 0) uniform image2D img_output;
+struct Data {
+	float d[8];		//vec instead of float made some ugly padding
+	//vec3 pos;
+	//vec3 normal;
+	//vec2 tex;
+};
+
+layout(std430, binding = 0) buffer OutBuf
+{
+	Data dout[];
+};
 
 const float PI = 3.14159265;
+const int chunkSize = 32;
 
-uniform float offset;
 uniform ivec2 chunkPos;
-uniform int LOD;
 
 // A single iteration of Bob Jenkins' One-At-A-Time hashing algorithm.
 uint hash(uint x) {
@@ -57,7 +66,7 @@ float valueNoise(vec2 v) {
 
 float getHeight(vec2 p) {
 	float h = 0.0;
-	for (int i = 0; i < 4 * LOD + 2; i++) {
+	for (int i = 0; i < 5; i++) {
 		h += 0.6 * valueNoise(2.24 * pow(2, i) * p) / (1 + pow(2, i));
 	}
 	return h;
@@ -65,13 +74,31 @@ float getHeight(vec2 p) {
 }
 
 void main() {
-	ivec2 dims = imageSize(img_output) - ivec2(1);
-	ivec2 pixel_coords = ivec2(gl_GlobalInvocationID.xy);
-	vec2 pos = chunkPos + vec2(pixel_coords) / dims;
-	vec3 v0 = vec3(pos.x, getHeight(pos), pos.y);
-	vec3 v1 = vec3(pos.x + offset, getHeight(vec2(pos.x + offset, pos.y)), pos.y);
-	vec3 v2 = vec3(pos.x, getHeight(vec2(pos.x, pos.y + offset)), pos.y + offset);
-	vec3 n = normalize(cross(v2 - v0, v1 - v0));
-	vec4 pixel = vec4(n, v0.y);
-	imageStore(img_output, pixel_coords, pixel);
+	uvec2 coords = gl_GlobalInvocationID.xy;
+	vec2 lilstep = vec2(1.0 / chunkSize); 
+	vec2 offset = vec2(coords) * lilstep;
+	uint i = 6 * (coords.x + chunkSize * coords.y);
+	vec2 pos = vec2(chunkPos) + offset;
+	vec3 v[4] = {
+		vec3(pos.x, getHeight(pos), pos.y),
+		vec3(pos.x + lilstep.x, getHeight(vec2(pos.x + lilstep.x, pos.y)), pos.y),
+		vec3(pos.x, getHeight(vec2(pos.x, pos.y + lilstep.y)), pos.y + lilstep.y),
+		vec3(pos.x + lilstep.x, getHeight(vec2(pos.x + lilstep.x, pos.y + lilstep.y)), pos.y + lilstep.y)
+	};
+	vec3 n[2] = {
+		normalize(cross(v[2] - v[0], v[1] - v[0])),
+		normalize(cross(v[1] - v[3], v[2] - v[3]))
+	};
+	
+	for (int j = 0; j < 6; j++) {
+		int v_idx = (j < 3) ? j : 3 - (j - 3);
+		int n_idx = (j < 3) ? 0 : 1;
+		dout[i + j].d[0] = v[v_idx].x;
+		dout[i + j].d[1] = v[v_idx].y;
+		dout[i + j].d[2] = v[v_idx].z;
+
+		dout[i + j].d[3] = n[n_idx].x;
+		dout[i + j].d[4] = n[n_idx].y;
+		dout[i + j].d[5] = n[n_idx].z;
+	}
 }
