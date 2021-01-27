@@ -6,14 +6,16 @@
 #include <vector>
 #include "rng.h"
 
+#define CHUNK_SIZE 32
+#define RENDER_DIST 6
+
 using namespace glm;
 
 class Terrain {
 
 struct Chunk {
-    GLuint image;
-    //level of detail, 1 initial
-    int LOD;
+    GLuint vertexBuffer, vertexArray;
+    ~Chunk();
 };
 
 class HashFunction { 
@@ -30,12 +32,10 @@ public:
     void update(vec3 playerPos);
     void addDetail(ivec2 pos);
     void removeDetail(ivec2 pos);
-    void makeChunk(ivec2 pos, int LOD);
+    void makeChunk(ivec2 pos);
+    float getHeight(vec2 pos);
 private:
-    static constexpr int chunkSize = 16;
-    static constexpr int LODs = 3;
-    GLuint VAO[LODs];
     GLuint program, computeProgram;
-    std::unordered_map<ivec2, Chunk, HashFunction> chunks;
+    std::unordered_map<ivec2, Chunk*, HashFunction> chunks;
 };
 

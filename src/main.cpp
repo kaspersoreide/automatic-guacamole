@@ -78,25 +78,26 @@ int main() {
 	glEnable(GL_DEPTH_TEST);
 
 	player = new Player();
-	Terrain terrain;
+	Terrain* terrain = new Terrain();
     
     mat4 Projection = perspective(
 		1.2f,
 		16.0f / 9,
 		0.01f,
-		100.0f
+		(float)RENDER_DIST
 	);
-
+	//terrain--makeChunk(ivec2(0, 0));
+	
     while (!glfwWindowShouldClose(window) && !closed) {
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         //main loop
-        player->move();
+        player->move(terrain);
         mat4 VP = Projection * player->getView();
-		terrain.update(player->getPos());
-        terrain.render(VP);
+		terrain->update(player->getPos());
+        terrain->render(VP);
         glfwSwapBuffers(window);
 		glfwPollEvents();
     }
-
+	
     return 0;
 }
