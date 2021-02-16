@@ -1,6 +1,7 @@
 #pragma once
 #include "GL/glew.h"
 #include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
 #include "loadshaders.h"
 #include "matrix.h"
 
@@ -17,7 +18,6 @@ public:
 	mat4 getModel() { return Model; }
 	mat4 getView() { return inverse(Model); }
 	mat3 getRotation() { return Rotation; }
-protected:
 	vec3 pos = vec3(0.0f);
 	vec3 spin = vec3(0.0f);
 	vec3 vel = vec3(0.0f);

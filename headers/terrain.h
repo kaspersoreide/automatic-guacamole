@@ -7,7 +7,7 @@
 #include "rng.h"
 
 #define CHUNK_SIZE 32
-#define RENDER_DIST 6
+#define RENDER_DIST 7
 
 using namespace glm;
 
@@ -15,6 +15,7 @@ class Terrain {
 
 struct Chunk {
     GLuint vertexBuffer, vertexArray;
+    int LOD;
     ~Chunk();
 };
 
@@ -32,7 +33,7 @@ public:
     void update(vec3 playerPos);
     void addDetail(ivec2 pos);
     void removeDetail(ivec2 pos);
-    void makeChunk(ivec2 pos);
+    void makeChunk(ivec2 pos, int LOD);
     float getHeight(vec2 pos);
 private:
     GLuint program, computeProgram;
