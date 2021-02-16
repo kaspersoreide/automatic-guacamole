@@ -38,3 +38,11 @@ mat4 translateR(mat3 R, vec3 p) {
 	result[3][3] = 1.0f;
 	return result;
 }
+
+vec3 sphereToCartesian(vec2 a) {
+	return vec3(
+		cos(a.y) * sin(a.x), 
+		sin(a.y),
+		cos(a.y) * cos(a.x)
+	);
+}
