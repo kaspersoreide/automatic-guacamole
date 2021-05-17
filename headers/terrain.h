@@ -6,8 +6,8 @@
 #include <vector>
 #include "rng.h"
 
-#define CHUNK_SIZE 32
-#define RENDER_DIST 7
+#define CHUNK_SIZE 64
+#define RENDER_DIST 4
 
 using namespace glm;
 

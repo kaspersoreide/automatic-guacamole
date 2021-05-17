@@ -14,11 +14,11 @@ out vec3 vcolor;
 
 void main() {
     float shade = max(dot(normal, -sunDir), 0.2); 
-    vec3 dpos = pos - playerPos;
-    float d2 = dpos.x*dpos.x + dpos.z*dpos.z;
-    vec3 npos = vec3(pos.x, pos.y + 0.1 * sin(0.3 * t) * d2, pos.z);
-    gl_Position = VP * vec4(npos, 1.0);
-    float fade = exp(-gl_Position.z * 0.4);
-    vec3 fogColor = vec3(0.2, 0.0, 0.0);
+    //vec3 dpos = pos - playerPos;
+    //float d2 = dpos.x*dpos.x + dpos.z*dpos.z;
+    //vec3 npos = vec3(pos.x, pos.y + 0.1 * sin(0.3 * t) * d2, pos.z);
+    gl_Position = VP * vec4(pos, 1.0);
+    float fade = exp(-gl_Position.z * 1.4);
+    vec3 fogColor = vec3(0.5, 0.5, 0.5);
     vcolor = mix(fogColor, shade * color, fade);
 }

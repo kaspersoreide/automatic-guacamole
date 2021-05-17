@@ -20,12 +20,17 @@ void Player::move(Terrain* terrain) {
 	if (mov[1]) vel -= speed * direction;
 	if (mov[2]) vel -= speed * right;
 	if (mov[3]) vel += speed * right;
+    if (!mov[0] && !mov[1] && !mov[3] && !mov[4]) {
+        //stop player
+        vel.x *= 0.9f;
+        vel.z *= 0.9f;
+    }
 	//if (mov[4]) vel += speed * up;
 	//if (mov[5]) vel -= speed * up;
 	vel.y -= 0.0004f;
 	float h = terrain->getHeight(vec2(pos.x, pos.z));
 	if (vel.y <= 0.0f && pos.y <= h + 0.06f) {
-		vel.y *= -0.01f;
+		vel.y *= -0.001f;
 		pos.y = h + 0.06f;
 	}
 	
@@ -50,8 +55,10 @@ Player::Player() {
 	viewAngle = vec2(0.0f, 2.14f / 2.0f);
 }
 
-void Player::jump() {
-	vel.y = 0.01f;
+void Player::jump(Terrain* terrain) {
+    float h = terrain->getHeight(vec2(pos.x, pos.z));
+    if (pos.y <= h + 0.07f)
+	    vel.y = 0.01f;
 }
 
 Player::~Player()

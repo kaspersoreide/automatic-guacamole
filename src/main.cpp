@@ -51,7 +51,7 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
 		closed = true;
 	}
 	if (key == GLFW_KEY_SPACE && action == GLFW_PRESS) {
-		game->player->jump();
+		game->player->jump(game->terrain);
 	}
 }
 

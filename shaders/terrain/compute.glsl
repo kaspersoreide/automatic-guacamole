@@ -127,8 +127,8 @@ void main() {
 		dout[i + j].d[5] = n[n_idx].z;
 
 		float h = v[v_idx].y;
-		const vec3 color1 = vec3(0.9, 0.1, 0.1);
-		const vec3 color2 = vec3(valueNoise(pos.xy));
+		const vec3 color1 = vec3(0.1, 0.1, 0.1);
+		const vec3 color2 = vec3(0.3, 0.4, 0.3);
 		vec3 color = mix(color1, color2, h / 2.0);
 		dout[i + j].d[6] = color.x;
 		dout[i + j].d[7] = color.y;

@@ -6,7 +6,7 @@ class Player : public Object {
 public:
 	void move(Terrain* terrain);
 	void rotate(vec2 cursor);
-	void jump();
+	void jump(Terrain* terrain);
 	bool mov[6], rot[6];
 	vec2 viewAngle;
 	vec3 up, right, direction;
